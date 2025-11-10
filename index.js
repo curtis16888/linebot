@@ -71,8 +71,8 @@ app.post("/webhook", middleware(config), async (req, res) => {
         }
       }
 
-  res.sendStatus(200);
-});
+//  res.sendStatus(200);
+//});
 
 // ➤ Render / 本地啟動設定
 const PORT = process.env.PORT || 3000;
