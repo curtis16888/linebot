@@ -2,6 +2,7 @@ import express from "express";
 import { Client, middleware } from "@line/bot-sdk";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 const app = express();
@@ -10,43 +11,62 @@ const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.CHANNEL_SECRET,
 };
+
 const client = new Client(config);
 
-// 👉 新增：GET /webhook 用來讓 Verify/健康檢查快速回 200
+// ➤ 用來測試 webhook 是否能通
 app.get("/webhook", (req, res) => {
   res.status(200).send("OK");
 });
 
-// 你原本的 webhook（保持 POST，並用 LINE middleware）
+// ➤ 處理 LINE webhook 事件
 app.post("/webhook", middleware(config), async (req, res) => {
   console.log("[Webhook] events:", req.body?.events?.length ?? 0);
 
   for (const event of req.body.events || []) {
     if (event.type === "message" && event.message.type === "text") {
-      const text = (event.message.text || "").trim();
+      const text = event.message.text.trim();
       const lineId = event.source.userId;
 
-      // 先做個回音，驗證 webhook 有通
-      await client.replyMessage(event.replyToken, { type: "text", text: `收到：${text}` });
+      // ✅ 無論什麼訊息先回覆回音，方便測試
+      await client.replyMessage(event.replyToken, {
+        type: "text",
+        text: `收到：${text}`,
+      });
 
-      // 你的關鍵字
-      if (text.toUpperCase() === "@@**") {
+      // ✅ 關鍵字條件（可自行新增更多）
+      const normalized = text.toUpperCase();
+      if (normalized.startsWith("@@**")) {
         try {
           await fetch(process.env.SCRIPT_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lineId, keyword: text }),
+            body: JSON.stringify({
+              lineId,
+              keyword: "@@**",
+              message: text, // 使用者完整訊息
+            }),
           });
-          await client.pushMessage(lineId, { type: "text", text: "success！" });
+
+          // 成功後推送訊息
+          await client.pushMessage(lineId, {
+            type: "text",
+            text: "✅ 已登記成功，感謝您的填寫！",
+          });
         } catch (e) {
           console.error("寫入 Google Sheet 失敗：", e);
-          await client.pushMessage(lineId, { type: "text", text: "寫入失敗，稍後重試。" });
+          await client.pushMessage(lineId, {
+            type: "text",
+            text: "⚠️ 資料寫入失敗，請稍後再試。",
+          });
         }
       }
     }
   }
-  res.sendStatus(200); // 一定回 200
+
+  res.sendStatus(200);
 });
 
-const PORT = process.env.PORT || 3000; // Render 會設定 PORT
-app.listen(PORT, () => console.log(`LINE Bot executing at port ${PORT}`));
+// ➤ Render / 本地啟動設定
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 LINE Bot executing at port ${PORT}`));
