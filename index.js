@@ -38,31 +38,38 @@ app.post("/webhook", middleware(config), async (req, res) => {
       const normalized = text.toUpperCase();
       if (normalized.startsWith("@@**")) {
         try {
+          // 取得使用者基本資料
+          let displayName = "";
+          if (event.source.type === "user") {
+            const profile = await client.getProfile(event.source.userId);
+            displayName = profile.displayName || "";
+          } else {
+            displayName = "(群組成員)";
+          }
+      
           await fetch(process.env.SCRIPT_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              lineId,
+              lineId,             // 原始的 userId
+              displayName,        // 顯示名稱
               keyword: "@@**",
-              message: text, // 使用者完整訊息
+              message: text,      // 完整訊息
             }),
           });
-
-          // 成功後推送訊息
+      
           await client.pushMessage(lineId, {
             type: "text",
-            text: "✅ 已登記成功，感謝您的填寫！",
+            text: `✅ ${displayName}，已登記成功！`,
           });
         } catch (e) {
           console.error("寫入 Google Sheet 失敗：", e);
           await client.pushMessage(lineId, {
             type: "text",
-            text: "⚠️ 資料寫入失敗，請稍後再試。",
+            text: "⚠️ 寫入失敗，請稍後再試。",
           });
         }
       }
-    }
-  }
 
   res.sendStatus(200);
 });
