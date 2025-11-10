@@ -46,7 +46,7 @@ app.post("/webhook", middleware(config), async (req, res) => {
           } else {
             displayName = "(群組成員)";
           }
-      
+
           await fetch(process.env.SCRIPT_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -57,7 +57,7 @@ app.post("/webhook", middleware(config), async (req, res) => {
               message: text,      // 完整訊息
             }),
           });
-      
+
           await client.pushMessage(lineId, {
             type: "text",
             text: `✅ ${displayName}，已登記成功！`,
@@ -70,9 +70,12 @@ app.post("/webhook", middleware(config), async (req, res) => {
           });
         }
       }
+    }
+  }
 
-//  res.sendStatus(200);
-//});
+  // ✅ 千萬不要註解掉這行
+  res.sendStatus(200);
+});
 
 // ➤ Render / 本地啟動設定
 const PORT = process.env.PORT || 3000;
