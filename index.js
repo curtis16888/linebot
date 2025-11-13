@@ -15,6 +15,7 @@ const client = new Client(config);
 
 // ➤ LINE 顯示名稱對照表（你在這裡填真實名字）
 const displayNameMap = {
+  "U5732372307f3bf9ce8274a8fa8f29e28": "思揚"
   "Uxxxx1234567890aaaaaa": "小明",
   "Uyyyy111122223333bbbb": "Curtis",
   "Czzzz88889999aaaa5555": "活動群組",
