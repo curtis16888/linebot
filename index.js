@@ -17,7 +17,7 @@ const client = new Client(config);
 const displayNameMap = {
   //"U5732372307f3bf9ce8274a8fa8f29e28": "思揚",
   "U10091b695d5dee103bed9965b714715d": "文菱",
-  // 繼續加...
+  // 可以自行新增更多...
 };
 
 // ➤ 健康檢查
@@ -31,7 +31,7 @@ app.post("/webhook", middleware(config), async (req, res) => {
     const text = event.message.text.trim();
     const upper = text.toUpperCase();
 
-    // ➤ 關鍵字條件 @@**
+    // ➤ 僅處理以 @@** 開頭的訊息
     if (!upper.startsWith("@@**")) continue;
 
     const src = event.source;
@@ -39,23 +39,19 @@ app.post("/webhook", middleware(config), async (req, res) => {
     let displayName = "";
 
     try {
-      // ========== 來源：私訊 ==========
+      // ------------------------------
+      // 來源識別
+      // ------------------------------
       if (src.type === "user") {
         lineId = src.userId;
-      }
-
-      // ========== 來源：群組 ==========
-      else if (src.type === "group") {
+      } else if (src.type === "group") {
         lineId = src.userId || src.groupId;
-      }
-
-      // ========== 來源：聊天室 ==========
-      else if (src.type === "room") {
+      } else if (src.type === "room") {
         lineId = src.userId || src.roomId;
       }
 
       // ------------------------------
-      // 嘗試取得顯示名稱
+      // 取得顯示名稱（若無則使用 mapping 或 NA）
       // ------------------------------
       displayName = displayNameMap[lineId] || "NA";
 
@@ -69,6 +65,11 @@ app.post("/webhook", middleware(config), async (req, res) => {
       }
 
       // ------------------------------
+      // 清理訊息內容（去除 @@** 與空白）
+      // ------------------------------
+      const cleanedMessage = text.replace(/^@@\*\*\s*/, "");
+
+      // ------------------------------
       // 寫入 Google Sheet
       // ------------------------------
       await fetch(process.env.SCRIPT_URL, {
@@ -77,11 +78,11 @@ app.post("/webhook", middleware(config), async (req, res) => {
         body: JSON.stringify({
           lineId,
           displayName,
-          message: text,
+          message: cleanedMessage, // ✅ 去除 @@**
         }),
       });
 
-      console.log(`✅ Saved => ${displayName} (${lineId}) : ${text}`);
+      console.log(`✅ Saved => ${displayName} (${lineId}) : ${cleanedMessage}`);
     } catch (err) {
       console.error("❌ 寫入失敗：", err.message);
     }
