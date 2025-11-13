@@ -15,7 +15,7 @@ const client = new Client(config);
 
 // ➤ LINE 顯示名稱對照表（手動 mapping）
 const displayNameMap = {
-  "U5732372307f3bf9ce8274a8fa8f29e28": "思揚",
+  //"U5732372307f3bf9ce8274a8fa8f29e28": "思揚",
   "U10091b695d5dee103bed9965b714715d": "文菱",
   // 繼續加...
 };
