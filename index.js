@@ -13,18 +13,18 @@ const config = {
 
 const client = new Client(config);
 
-// ➤ LINE 顯示名稱對照表（你要在這裡新增自己的 ID）
+// ➤ LINE 顯示名稱對照表（你在這裡填真實名字）
 const displayNameMap = {
-  "Uxxxxxx123456789": "小明",
-  "Uyyyyyy987654321": "Curtis",
-  "Czzzzzzzzzzzzzzz": "活動群組",
-  // 可以持續加下去
+  "Uxxxx1234567890aaaaaa": "小明",
+  "Uyyyy111122223333bbbb": "Curtis",
+  "Czzzz88889999aaaa5555": "活動群組",
+  // 繼續加...
 };
 
 // ➤ 健康檢查
 app.get("/webhook", (req, res) => res.status(200).send("OK"));
 
-// ➤ 主 webhook
+// ➤ 主 Webhook 處理邏輯
 app.post("/webhook", middleware(config), async (req, res) => {
   for (const event of req.body.events || []) {
     if (event.type !== "message" || event.message.type !== "text") continue;
@@ -32,32 +32,53 @@ app.post("/webhook", middleware(config), async (req, res) => {
     const text = event.message.text.trim();
     const upper = text.toUpperCase();
 
-    // ➤ 必須匹配關鍵字（你現在的關鍵字是 @@**）
+    // ➤ 必須符合關鍵字 @@**
     if (!upper.startsWith("@@**")) continue;
 
     let lineId = "";
     let displayName = "";
+    const src = event.source;
 
     try {
-      const src = event.source.type;
-
-      if (src === "user") {
-        lineId = event.source.userId;
-
-        // 使用你的 displayNameMap，如果沒有→NA
+      // -----------------------------
+      // 來源在「私訊」
+      // -----------------------------
+      if (src.type === "user") {
+        lineId = src.userId;
         displayName = displayNameMap[lineId] || "NA";
-
-      } else if (src === "group") {
-        lineId = event.source.groupId;
-
-        displayName = displayNameMap[lineId] || "(群組)";
-      } else if (src === "room") {
-        lineId = event.source.roomId;
-
-        displayName = displayNameMap[lineId] || "(聊天室)";
       }
 
-      // ➤ 將資料寫入 Google Sheet
+      // -----------------------------
+      // 來源在「群組」
+      // -----------------------------
+      else if (src.type === "group") {
+        if (src.userId) {
+          // 成員有加好友 → 取得 userId（個人）
+          lineId = src.userId;
+          displayName = displayNameMap[lineId] || "NAGROUP";
+        } else {
+          // 成員沒加好友 → 只能存群組 ID
+          lineId = src.groupId;
+          displayName = displayNameMap[lineId] || "(群組訊息)";
+        }
+      }
+
+      // -----------------------------
+      // 來源在「多人聊天室」
+      // -----------------------------
+      else if (src.type === "room") {
+        if (src.userId) {
+          lineId = src.userId;
+          displayName = displayNameMap[lineId] || "NAROOM";
+        } else {
+          lineId = src.roomId;
+          displayName = displayNameMap[lineId] || "(聊天室訊息)";
+        }
+      }
+
+      // -----------------------------
+      // 寫入 Google Sheet
+      // -----------------------------
       await fetch(process.env.SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,10 +89,10 @@ app.post("/webhook", middleware(config), async (req, res) => {
         })
       });
 
-      console.log(`Saved: ${displayName} (${lineId}) => ${text}`);
+      console.log(`Saved => ${displayName} (${lineId}) : ${text}`);
 
     } catch (err) {
-      console.error("Error:", err);
+      console.error("寫入失敗：", err);
     }
   }
 
@@ -79,4 +100,4 @@ app.post("/webhook", middleware(config), async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Keyword Bot running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Keyword Bot running at ${PORT}`));
