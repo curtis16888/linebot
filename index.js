@@ -17,6 +17,7 @@ const client = new Client(config);
 const displayNameMap = {
   //"U5732372307f3bf9ce8274a8fa8f29e28": "思揚",
   "U10091b695d5dee103bed9965b714715d": "文菱",
+  "U7522c5430d21bad1b773067f001eac10": "衍立",
   // 可以自行新增更多...
 };
 
