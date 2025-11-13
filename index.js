@@ -2,7 +2,6 @@ import express from "express";
 import { Client, middleware } from "@line/bot-sdk";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
-
 dotenv.config();
 
 const app = express();
@@ -14,69 +13,70 @@ const config = {
 
 const client = new Client(config);
 
-// ➤ 用來測試 webhook 是否能通
-app.get("/webhook", (req, res) => {
-  res.status(200).send("OK");
-});
+// ➤ LINE 顯示名稱對照表（你要在這裡新增自己的 ID）
+const displayNameMap = {
+  "Uxxxxxx123456789": "小明",
+  "Uyyyyyy987654321": "Curtis",
+  "Czzzzzzzzzzzzzzz": "活動群組",
+  // 可以持續加下去
+};
 
-// ➤ 處理 LINE webhook 事件
+// ➤ 健康檢查
+app.get("/webhook", (req, res) => res.status(200).send("OK"));
+
+// ➤ 主 webhook
 app.post("/webhook", middleware(config), async (req, res) => {
-  console.log("[Webhook] events:", req.body?.events?.length ?? 0);
-
   for (const event of req.body.events || []) {
-    if (event.type === "message" && event.message.type === "text") {
-      const text = event.message.text.trim();
-      const lineId = event.source.userId;
+    if (event.type !== "message" || event.message.type !== "text") continue;
 
-      // ✅ 無論什麼訊息先回覆回音，方便測試
-      await client.replyMessage(event.replyToken, {
-        type: "text",
-        text: `收到：${text}`,
+    const text = event.message.text.trim();
+    const upper = text.toUpperCase();
+
+    // ➤ 必須匹配關鍵字（你現在的關鍵字是 @@**）
+    if (!upper.startsWith("@@**")) continue;
+
+    let lineId = "";
+    let displayName = "";
+
+    try {
+      const src = event.source.type;
+
+      if (src === "user") {
+        lineId = event.source.userId;
+
+        // 使用你的 displayNameMap，如果沒有→NA
+        displayName = displayNameMap[lineId] || "NA";
+
+      } else if (src === "group") {
+        lineId = event.source.groupId;
+
+        displayName = displayNameMap[lineId] || "(群組)";
+      } else if (src === "room") {
+        lineId = event.source.roomId;
+
+        displayName = displayNameMap[lineId] || "(聊天室)";
+      }
+
+      // ➤ 將資料寫入 Google Sheet
+      await fetch(process.env.SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lineId,
+          displayName,
+          message: text
+        })
       });
 
-      // ✅ 關鍵字條件（可自行新增更多）
-      const normalized = text.toUpperCase();
-      if (normalized.startsWith("@@**")) {
-        try {
-          // 取得使用者基本資料
-          let displayName = "";
-          if (event.source.type === "user") {
-            const profile = await client.getProfile(event.source.userId);
-            displayName = profile.displayName || "";
-          } else {
-            displayName = "(群組成員)";
-          }
+      console.log(`Saved: ${displayName} (${lineId}) => ${text}`);
 
-          await fetch(process.env.SCRIPT_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              lineId,             // 原始的 userId
-              displayName,        // 顯示名稱
-              keyword: "@@**",
-              message: text,      // 完整訊息
-            }),
-          });
-
-          await client.pushMessage(lineId, {
-            type: "text",
-            text: `✅ ${displayName}，已登記成功！`,
-          });
-        } catch (e) {
-          console.error("寫入 Google Sheet 失敗：", e);
-          await client.pushMessage(lineId, {
-            type: "text",
-            text: "⚠️ 寫入失敗，請稍後再試。",
-          });
-        }
-      }
+    } catch (err) {
+      console.error("Error:", err);
     }
   }
 
-  // ✅ 千萬不要註解掉這行
   res.sendStatus(200);
 });
 
-// ➤ Render / 本地啟動設定
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 LINE Bot executing at port ${PORT}`));
+app.listen(PORT, () => console.log(`Keyword Bot running on port ${PORT}`));
