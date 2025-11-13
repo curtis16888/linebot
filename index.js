@@ -77,7 +77,7 @@ app.post("/webhook", middleware(config), async (req, res) => {
         body: JSON.stringify({
           lineId,
           displayName,
-          message: text.replace(/^@@\*\*\s*/, ""), // ✅ 去除開頭的 @@** + 空白
+          message: text,
         }),
       });
 
